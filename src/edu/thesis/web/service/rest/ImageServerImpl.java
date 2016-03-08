@@ -5,6 +5,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
@@ -24,12 +26,21 @@ import com.sun.jersey.multipart.FormDataParam;
  
 @Path("/")
 public class ImageServerImpl implements ImageServer {
-
+	
+	Map<String,String> ImageIndex;
+	
+	public ImageServerImpl(){
+		ImageIndex = new HashMap<String,String>();
+	}
+	
 	@GET
 	@Path("/images/{imageId}")
 	@Produces("image/jpg")
 	public Response downloadImage(@PathParam("imageId") String imageId) {
-	    ResponseBuilder response = Response.ok((Object) new File("/home/abs/Pictures/pic.jpg"));
+		System.out.println(ImageIndex.size());
+		String path = ImageIndex.get(imageId);
+		System.out.println(path);
+	    ResponseBuilder response = Response.ok((Object) new File(path));
 	    response.header("Content-Disposition",
 	            "attachment; filename=\"pic.jpg\"");
 	    return response.build();
@@ -41,6 +52,8 @@ public class ImageServerImpl implements ImageServer {
 	public Response uploadImage(
 		@FormDataParam("image") InputStream uploadedInputStream,
 		@FormDataParam("details") String imageDetail) {
+		
+		System.out.println(imageDetail);
 		
 		ObjectMapper mapper = new ObjectMapper();
 		ImageDetails obj = null;
@@ -57,33 +70,42 @@ public class ImageServerImpl implements ImageServer {
 			e.printStackTrace();
 		}
 		
-		String uploadedFileLocation = "/home/abs/hyraxWorkspace/hyrax-server/images/" + obj.getLocation() + obj.getTime();
-
+		File imgDir = new File ("./HyraxImages/");
+		if (!imgDir.exists()){
+			imgDir.mkdir();
+		}
+		
+		String id = obj.getLocation() + obj.getTime();
+		
+		String uploadedFileLocation =  "./HyraxImages/" + id + ".jpg";
+		
 		// save it
-		writeToFile(uploadedInputStream, uploadedFileLocation);
+		writeToFile(id, uploadedInputStream, uploadedFileLocation);
 
 		String output = "File uploaded to : " + uploadedFileLocation;
-
+		System.out.println(id);
+		System.out.println(ImageIndex.size());
 		return Response.status(200).entity(output).build();
 
 	}
-
+	
 	// save uploaded file to new location
-	private void writeToFile(InputStream uploadedInputStream,
+	private void writeToFile(String id, InputStream uploadedInputStream,
 		String uploadedFileLocation) {
 
 		try {
-			OutputStream out = new FileOutputStream(new File(
-					uploadedFileLocation));
+			
 			int read = 0;
 			byte[] bytes = new byte[1024];
-
-			out = new FileOutputStream(new File(uploadedFileLocation));
+			
+			File img = new File(uploadedFileLocation);
+			OutputStream out = new FileOutputStream(img);
 			while ((read = uploadedInputStream.read(bytes)) != -1) {
 				out.write(bytes, 0, read);
 			}
 			out.flush();
 			out.close();
+			ImageIndex.put(id, img.getAbsolutePath());
 		} catch (IOException e) {
 
 			e.printStackTrace();
