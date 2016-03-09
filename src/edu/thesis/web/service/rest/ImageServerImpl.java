@@ -5,9 +5,13 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Vector;
 
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.Persistence;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
@@ -21,28 +25,54 @@ import javax.ws.rs.core.Response.ResponseBuilder;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sun.jersey.core.header.FormDataContentDisposition;
 import com.sun.jersey.multipart.FormDataParam;
+
+import oracle.toplink.essentials.expressions.ExpressionBuilder;
+import oracle.toplink.essentials.queryframework.ReadAllQuery;
+import oracle.toplink.essentials.queryframework.ReadObjectQuery;
+import oracle.toplink.essentials.queryframework.ReportQuery;
  
 @Path("/")
 public class ImageServerImpl implements ImageServer {
 	
-	Map<String,String> ImageIndex;
+	private EntityManagerFactory emf;
+	private EntityManager em;
+	private String PERSISTENCE_UNIT_NAME = "hyrax-server";
 	
 	public ImageServerImpl(){
-		ImageIndex = new HashMap<String,String>();
+		initEntityManager();
+	}
+	
+	private void initEntityManager() {
+		 emf = Persistence.createEntityManagerFactory(PERSISTENCE_UNIT_NAME);
+		 em = emf.createEntityManager();
+		
+	}
+	
+	@GET
+	@Path("/images")
+	@Produces({MediaType.APPLICATION_JSON})
+	public List<ImageDAO> getAllIds(){
+		List<ImageEntity> images = em.createQuery("select i from ImageEntity i").getResultList();
+		List<ImageDAO> dao = new ArrayList<ImageDAO>();
+		for (ImageEntity i : images){
+			dao.add(new ImageDAO(i.getId(),i.getLocation(),i.getTime()));
+		}
+		return dao;
 	}
 	
 	@GET
 	@Path("/images/{imageId}")
 	@Produces("image/jpg")
 	public Response downloadImage(@PathParam("imageId") String imageId) {
-		System.out.println(ImageIndex.size());
-		String path = ImageIndex.get(imageId);
-		System.out.println(path);
-	    ResponseBuilder response = Response.ok((Object) new File(path));
+		ImageEntity img = (ImageEntity) em.createQuery("select i from ImageEntity i where i.id = :imageId ")
+				.setParameter("imageId", Integer.parseInt(imageId))
+				.getSingleResult();
+		System.out.println(img.getPath());
+		File f = new File(img.getPath());
+	    ResponseBuilder response = Response.ok((Object) f);
 	    response.header("Content-Disposition",
-	            "attachment; filename=\"pic.jpg\"");
+	            "attachment; filename=" + f.getName());
 	    return response.build();
 	}
 	
@@ -56,9 +86,9 @@ public class ImageServerImpl implements ImageServer {
 		System.out.println(imageDetail);
 		
 		ObjectMapper mapper = new ObjectMapper();
-		ImageDetails obj = null;
+		ImageEntity obj = null;
 		try {
-			obj = mapper.readValue(imageDetail, ImageDetails.class);
+			obj = mapper.readValue(imageDetail, ImageEntity.class);
 		} catch (JsonParseException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -70,21 +100,25 @@ public class ImageServerImpl implements ImageServer {
 			e.printStackTrace();
 		}
 		
-		File imgDir = new File ("./HyraxImages/");
+		File imgDir = new File ("HyraxImages/");
 		if (!imgDir.exists()){
 			imgDir.mkdir();
 		}
 		
 		String id = obj.getLocation() + obj.getTime();
 		
-		String uploadedFileLocation =  "./HyraxImages/" + id + ".jpg";
+		String uploadedFileLocation =  imgDir.getAbsolutePath() + "/" + id + ".jpg";
+		obj.setPath(uploadedFileLocation);
 		
 		// save it
 		writeToFile(id, uploadedInputStream, uploadedFileLocation);
 
+		em.getTransaction().begin();
+		em.persist(obj);
+		em.getTransaction().commit();
+		
 		String output = "File uploaded to : " + uploadedFileLocation;
-		System.out.println(id);
-		System.out.println(ImageIndex.size());
+		
 		return Response.status(200).entity(output).build();
 
 	}
@@ -105,7 +139,6 @@ public class ImageServerImpl implements ImageServer {
 			}
 			out.flush();
 			out.close();
-			ImageIndex.put(id, img.getAbsolutePath());
 		} catch (IOException e) {
 
 			e.printStackTrace();
