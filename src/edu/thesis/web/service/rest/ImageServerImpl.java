@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
+import javax.jmdns.JmDNS;
+import javax.jmdns.ServiceInfo;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
@@ -41,6 +43,8 @@ public class ImageServerImpl implements ImageServer {
 	
 	public ImageServerImpl(){
 		initEntityManager();
+		
+	    
 	}
 	
 	private void initEntityManager() {
