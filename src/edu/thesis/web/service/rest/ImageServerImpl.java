@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Vector;
 
 import javax.jmdns.JmDNS;
@@ -27,6 +28,8 @@ import javax.ws.rs.core.Response.ResponseBuilder;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sun.jersey.multipart.FormDataBodyPart;
+import com.sun.jersey.multipart.FormDataMultiPart;
 import com.sun.jersey.multipart.FormDataParam;
 
 import oracle.toplink.essentials.expressions.ExpressionBuilder;
@@ -83,52 +86,68 @@ public class ImageServerImpl implements ImageServer {
 	@POST
 	@Path("/upload")
 	@Consumes(MediaType.MULTIPART_FORM_DATA)
-	public Response uploadImage(
-		@FormDataParam("image") InputStream uploadedInputStream,
-		@FormDataParam("details") String imageDetail) {
-		
-		System.out.println(imageDetail);
-		
-		ObjectMapper mapper = new ObjectMapper();
-		ImageEntity obj = null;
-		try {
-			obj = mapper.readValue(imageDetail, ImageEntity.class);
-		} catch (JsonParseException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (JsonMappingException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		File imgDir = new File ("HyraxImages/");
+	public Response uploadImage(FormDataMultiPart formParams)
+	{
+	    Map<String, List<FormDataBodyPart>> fieldsByName = formParams.getFields();
+	    
+	    File imgDir = new File ("HyraxImages/");
 		if (!imgDir.exists()){
 			imgDir.mkdir();
 		}
-		
-		String id = obj.getLocation() + obj.getTime();
-		
-		String uploadedFileLocation =  imgDir.getAbsolutePath() + "/" + id + ".jpg";
-		obj.setPath(uploadedFileLocation);
-		
-		// save it
-		writeToFile(id, uploadedInputStream, uploadedFileLocation);
+	    
+	    for (List<FormDataBodyPart> fields : fieldsByName.values())
+	    {
+	        for (FormDataBodyPart field : fields)
+	        {
+	        	System.out.println(field.getName());
+	        	
+	        	if (field.getName().equals("details")){
+	        		ObjectMapper mapper = new ObjectMapper();
+	        		ImageEntity obj = null;
+	        		String details = field.getEntityAs(String.class);
+	        		
+	        		try {
+	        			obj = mapper.readValue(details, ImageEntity.class);
+	        		} catch (JsonParseException e) {
+	        			// TODO Auto-generated catch block
+	        			e.printStackTrace();
+	        		} catch (JsonMappingException e) {
+	        			// TODO Auto-generated catch block
+	        			e.printStackTrace();
+	        		} catch (IOException e) {
+	        			// TODO Auto-generated catch block
+	        			e.printStackTrace();
+	        		}
+	        		
+	        		String id = obj.getLocation() + obj.getTime();
+	        		
+	        		System.out.println(id);
+	        		
+	        	} else {
+	        		InputStream is = field.getEntityAs(InputStream.class);
+		            String fileName = field.getName();
 
-		em.getTransaction().begin();
-		em.persist(obj);
-		em.getTransaction().commit();
-		
-		String output = "File uploaded to : " + uploadedFileLocation;
+		            String uploadedFileLocation =  imgDir.getAbsolutePath() + "/" + fileName + ".jpg";
+		            
+		         // save it
+		    		writeToFile(is, uploadedFileLocation);
+	        	}
+	        	
+//	        	em.getTransaction().begin();
+//	    		em.persist(obj);
+//	    		em.getTransaction().commit();
+	            
+	            
+	        }
+	    }
+	    
+	    String output = "File uploaded to successfuly";
 		
 		return Response.status(200).entity(output).build();
-
 	}
 	
 	// save uploaded file to new location
-	private void writeToFile(String id, InputStream uploadedInputStream,
+	private void writeToFile(InputStream uploadedInputStream,
 		String uploadedFileLocation) {
 
 		try {

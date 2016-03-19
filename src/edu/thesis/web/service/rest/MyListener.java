@@ -7,8 +7,6 @@ import javax.jmdns.ServiceInfo;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
 
-import org.apache.catalina.util.ServerInfo;
-
 public class MyListener implements ServletContextListener {
 
 	private static String mServiceName = "hyrax";
