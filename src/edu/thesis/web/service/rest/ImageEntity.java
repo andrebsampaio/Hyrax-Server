@@ -18,7 +18,7 @@ public class ImageEntity {
 	@ManyToMany(targetEntity=User.class)
 	private Set<User> users;
 	
-	@OneToMany(targetEntity=Face.class)
+	@OneToMany(targetEntity=Face.class, cascade=CascadeType.PERSIST)
 	private Set<Face> faces;
 	
 	public ImageEntity(String location, String time, String path){

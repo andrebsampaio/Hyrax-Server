@@ -6,12 +6,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Vector;
+import java.util.Set;
 
-import javax.jmdns.JmDNS;
-import javax.jmdns.ServiceInfo;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
@@ -25,17 +24,19 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 
+import org.bytedeco.javacpp.opencv_core.Mat;
+import org.bytedeco.javacpp.opencv_core.Size;
+import org.bytedeco.javacpp.opencv_face.FaceRecognizer;
+import org.bytedeco.javacpp.opencv_face;
+import org.bytedeco.javacpp.opencv_imgcodecs;
+import org.bytedeco.javacpp.opencv_imgproc;
+import org.bytedeco.javacpp.helper.opencv_core;
+
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.jersey.multipart.FormDataBodyPart;
 import com.sun.jersey.multipart.FormDataMultiPart;
-import com.sun.jersey.multipart.FormDataParam;
-
-import oracle.toplink.essentials.expressions.ExpressionBuilder;
-import oracle.toplink.essentials.queryframework.ReadAllQuery;
-import oracle.toplink.essentials.queryframework.ReadObjectQuery;
-import oracle.toplink.essentials.queryframework.ReportQuery;
  
 @Path("/")
 public class ImageServerImpl implements ImageServer {
@@ -53,6 +54,59 @@ public class ImageServerImpl implements ImageServer {
 	private void initEntityManager() {
 		 emf = Persistence.createEntityManagerFactory(PERSISTENCE_UNIT_NAME);
 		 em = emf.createEntityManager();
+		
+	}
+	
+	@POST
+	@Path("/search")
+	@Produces({MediaType.APPLICATION_JSON})
+	@Consumes(MediaType.MULTIPART_FORM_DATA)
+	public List<ImageDAO> searchImage(FormDataMultiPart formParams){
+		Map<String, List<FormDataBodyPart>> fieldsByName = formParams.getFields();
+		FaceRecognizer faceRecognizer = null;
+		List<ImageEntity> detectedImages;
+		Size size;
+		int width = 0;int height = 0;
+		for (List<FormDataBodyPart> fields : fieldsByName.values())
+	    {
+	        for (FormDataBodyPart field : fields)
+	        {
+	        	if (field.getName().equals("eigenface")){
+	        		File imgDir = new File ("HyraxEigenfaces/");
+	        		if (!imgDir.exists()){
+	        			imgDir.mkdir();
+	        		}
+	        		
+	        		InputStream is = field.getEntityAs(InputStream.class);
+		            String fileName = field.getName();
+
+		            String uploadedFileLocation =  imgDir.getAbsolutePath() + "/" + fileName + ".xml";
+		            
+		            // save it
+		    		writeToFile(is, uploadedFileLocation);
+	        		
+	        		faceRecognizer = opencv_face.createEigenFaceRecognizer();
+	        		faceRecognizer.load(uploadedFileLocation);
+	        		
+	        	} else {
+	        		if (field.getName().equals("train_width")){
+	        			width = Integer.parseInt(field.getEntityAs(String.class));
+	        		} else if (field.getName().equals("train_height")) {
+	        			height = Integer.parseInt(field.getEntityAs(String.class));
+	        		}
+	        	}
+	        }
+	    }
+		
+		List<ImageEntity> images = em.createQuery("select i from ImageEntity i").getResultList();
+		detectedImages = this.recognizeInFaces(faceRecognizer, images, new Size(width,height));
+		
+		List<ImageDAO> responseImages = new ArrayList<>();
+		
+		for (ImageEntity i : detectedImages){
+			responseImages.add(new ImageDAO(i.getId(),i.getLocation(),i.getTime()));
+		}
+		return responseImages;
 		
 	}
 	
@@ -94,6 +148,11 @@ public class ImageServerImpl implements ImageServer {
 		if (!imgDir.exists()){
 			imgDir.mkdir();
 		}
+		
+		String fileName = "";
+		File imageFile = null;
+		ImageEntity obj = null;
+		Set<Face> faces = new HashSet<Face>(); 
 	    
 	    for (List<FormDataBodyPart> fields : fieldsByName.values())
 	    {
@@ -103,7 +162,6 @@ public class ImageServerImpl implements ImageServer {
 	        	
 	        	if (field.getName().equals("details")){
 	        		ObjectMapper mapper = new ObjectMapper();
-	        		ImageEntity obj = null;
 	        		String details = field.getEntityAs(String.class);
 	        		
 	        		try {
@@ -119,27 +177,56 @@ public class ImageServerImpl implements ImageServer {
 	        			e.printStackTrace();
 	        		}
 	        		
-	        		String id = obj.getLocation() + obj.getTime();
-	        		
-	        		System.out.println(id);
-	        		
-	        	} else {
+	        	} else if (field.getName().equals("image")) {
 	        		InputStream is = field.getEntityAs(InputStream.class);
-		            String fileName = field.getName();
-
-		            String uploadedFileLocation =  imgDir.getAbsolutePath() + "/" + fileName + ".jpg";
+	        		if (fileName == ""){
+	        			fileName = field.getContentDisposition().getFileName();
+	        		}
+	        		System.out.println(fileName);
+		            String imageLocation =  imgDir.getAbsolutePath() + "/" + fileName.split("\\.")[0] + "/" + fileName;
 		            
-		         // save it
-		    		writeToFile(is, uploadedFileLocation);
+		            imageFile = new File(imageLocation);
+		            
+	                imageFile.getParentFile().mkdirs();
+	         
+		            // save it
+		    		writeToFile(is, imageLocation);	
+		    		
+	        	} else if (field.getName().equals("face")){
+	        		InputStream is = field.getEntityAs(InputStream.class);
+	        		String [] info = field.getContentDisposition().getFileName().split("_");
+	        		if (fileName == ""){
+	        			fileName = info[0];
+	        		}
+		            String faceName = info[1];
+		        
+		            
+	        		
+	        		File faceFile = new File (imgDir.getAbsolutePath() + "/" + fileName + "/faces/" + faceName);
+		            
+	                faceFile.getParentFile().mkdirs();
+	                
+		            // save it
+		    		writeToFile(is, faceFile.getAbsolutePath());
+		    		
+		    		Face face = new Face();
+		    		face.setPath(faceFile.getAbsolutePath());
+		    		faces.add(face);
 	        	}
-	        	
-//	        	em.getTransaction().begin();
-//	    		em.persist(obj);
-//	    		em.getTransaction().commit();
-	            
-	            
+	      
 	        }
 	    }
+	    
+	    for(Face f : faces){
+    		f.setI(obj);
+    	}
+    	
+    	obj.setFaces(faces);
+    	obj.setPath(imageFile.getAbsolutePath());
+    	
+    	em.getTransaction().begin();
+		em.persist(obj);
+		em.getTransaction().commit();
 	    
 	    String output = "File uploaded to successfuly";
 		
@@ -167,5 +254,32 @@ public class ImageServerImpl implements ImageServer {
 			e.printStackTrace();
 		}
 
+	}
+	
+	private List<ImageEntity> recognizeInFaces(FaceRecognizer eigenFace, List<ImageEntity> images, Size size){
+		List<ImageEntity> detectedImages = new ArrayList<ImageEntity>();
+		double[] prediction = new double[1];
+        int[] predictionImageLabel = new int[1]; 
+        System.out.println("Number of images: " + images.size());
+		for (ImageEntity i : images){
+			for (Face f : i.getFaces()){
+				System.out.println("Number of faces: " + i.getFaces().size());
+				Mat face = processFace(f,size);
+				eigenFace.predict(face, predictionImageLabel, prediction);
+				if (prediction[0] < 5000000){
+					System.out.println("HELLOOOOO - " + prediction[0]);
+					detectedImages.add(i);
+					break;
+				}
+			}
+			
+		}
+		return detectedImages;
+	}
+
+	private Mat processFace(Face f, Size size) {
+		 Mat image = opencv_imgcodecs.imread(f.getPath(), opencv_imgcodecs.CV_LOAD_IMAGE_GRAYSCALE);
+	     opencv_imgproc.resize(image, image, size);
+		 return image;
 	}
 }
