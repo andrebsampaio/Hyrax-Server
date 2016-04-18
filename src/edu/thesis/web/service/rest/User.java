@@ -3,35 +3,34 @@ package edu.thesis.web.service.rest;
 import java.util.Set;
 
 import javax.persistence.Basic;
+import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.ManyToMany;
+import javax.persistence.Table;
 
 @Entity
+@Table(name="PERSON")
 public class User {
 	
 	@Id @GeneratedValue 
 	private int id;
 	
-	@Basic private String eigenfacePath;
-	@Basic private String name;
+	public int getId() {
+		return id;
+	}
+
+	@Basic
+	@Column(name = "NAME", length = 20) 
+	private String name;
 	@ManyToMany(targetEntity=ImageEntity.class)
-	private Set ImageEntity;
+	private Set<ImageEntity> images;
 	
 	public User (){}
 	
-	public User (String name, String eigenfacePath){
+	public User (String name){
 		this.setName(name);
-		this.setEigenfacePath(eigenfacePath);
-	}
-
-	public String getEigenfacePath() {
-		return eigenfacePath;
-	}
-
-	public void setEigenfacePath(String eigenfacePath) {
-		this.eigenfacePath = eigenfacePath;
 	}
 
 	public String getName() {
@@ -40,5 +39,9 @@ public class User {
 
 	public void setName(String name) {
 		this.name = name;
+	}
+	
+	public void addImage(ImageEntity image){
+		images.add(image);
 	}
 }

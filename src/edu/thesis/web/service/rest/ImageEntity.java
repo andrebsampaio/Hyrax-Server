@@ -38,7 +38,7 @@ public class ImageEntity {
 	}
 
 	public ImageEntity(){
-		
+		users = new HashSet<User>();
 	}
 	
 	public void addUser(User user){
