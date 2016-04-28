@@ -10,6 +10,8 @@ import javax.persistence.Id;
 import javax.persistence.ManyToMany;
 import javax.persistence.Table;
 
+import org.eclipse.persistence.annotations.Index;
+
 @Entity
 @Table(name="PERSON")
 public class User {
@@ -21,8 +23,7 @@ public class User {
 		return id;
 	}
 
-	@Basic
-	@Column(name = "NAME", length = 20) 
+	@Index
 	private String name;
 	@ManyToMany(targetEntity=ImageEntity.class)
 	private Set<ImageEntity> images;

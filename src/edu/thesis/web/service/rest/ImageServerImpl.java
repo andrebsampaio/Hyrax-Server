@@ -1,16 +1,17 @@
 package edu.thesis.web.service.rest;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
@@ -18,18 +19,20 @@ import javax.persistence.Persistence;
 import javax.persistence.TypedQuery;
 import javax.servlet.ServletContext;
 import javax.ws.rs.Consumes;
+import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
-import javax.ws.rs.core.GenericEntity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 
+import org.json.JSONArray;
 import org.openimaj.data.dataset.GroupedDataset;
+import org.openimaj.image.ImageUtilities;
 import org.openimaj.image.processing.face.detection.keypoints.KEDetectedFace;
 import org.openimaj.image.processing.face.recognition.FaceRecognitionEngine;
 import org.openimaj.ml.annotation.ScoredAnnotation;
@@ -40,14 +43,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.jersey.multipart.FormDataBodyPart;
 import com.sun.jersey.multipart.FormDataMultiPart;
 
-import org.json.JSONArray;
-
 @Path("/rest")
 public class ImageServerImpl implements ImageServer {
 
 	private EntityManagerFactory emf;
 	private EntityManager em;
 	private String PERSISTENCE_UNIT_NAME = "hyrax-server";
+	private static final int BUFFER_SIZE = 4096;
+	private FaceRecognitionEngine<KEDetectedFace, String> engine;
 
 	@Context
 	private ServletContext context;
@@ -77,30 +80,44 @@ public class ImageServerImpl implements ImageServer {
 		List<Integer> users = em.createQuery("select i.id from User i").getResultList();
 		return new JSONArray(users).toString();
 	}
+	
+	@GET
+	@Path("/checkallusers")
+	@Produces({ MediaType.APPLICATION_JSON})
+	public String test(){
+		List<Integer> users = em.createQuery("select i.id from User i").getResultList();
+		return new JSONArray(users).toString();
+	}
+	
+	@POST
+	@Path("/checkuser")
+	@Produces({ MediaType.APPLICATION_JSON})
+	public String check(@FormParam("username") String userName){
+		System.out.println(userName);
+		try{
+			User u = (User) em.createQuery("select u from User u where u.name = :name").setParameter("name", userName).getSingleResult();
+			return "true";
+		} catch(Exception e){
+			return "false";
+		}
+	}
+	
+	
 
 	@POST
 	@Path("/search")
 	@Produces({MediaType.APPLICATION_JSON})
-	@Consumes(MediaType.MULTIPART_FORM_DATA)
-	public List<ImageDAO> searchImage(FormDataMultiPart formParams){
-		Map<String, List<FormDataBodyPart>> fieldsByName = formParams.getFields();
-		String name = "";
-		for (List<FormDataBodyPart> fields : fieldsByName.values())
-		{
-			for (FormDataBodyPart field : fields)
-			{
-				if (field.getName().equals("person_name")){
-					name = field.getEntityAs(String.class);
-				}
-			}
-		}
-
-		List<ImageEntity> images = em.createQuery("SELECT i FROM ImageEntity i JOIN i.users u WHERE u.name = :name")
-				.setParameter("name", name)
+	public List<ImageDAO> searchImage(@FormParam("person_name") String userName){
+		System.out.println(userName);
+		List<ImageEntity> images = em.createQuery("SELECT i.images FROM User i WHERE i.name = :name")
+				.setParameter("name", userName)
 				.getResultList();
 		List<ImageDAO> dao = new ArrayList<ImageDAO>();
-		for (ImageEntity i : images){
-			dao.add(new ImageDAO(i.getId(),i.getLocation(),i.getTime()));
+		if (images.get(0) != null){
+			System.out.println(images.size());
+			for (ImageEntity i : images){
+				dao.add(new ImageDAO(i.getId(),i.getLocation(),i.getTime()));
+			}
 		}
 		return dao;
 	}
@@ -132,6 +149,104 @@ public class ImageServerImpl implements ImageServer {
 				"attachment; filename=" + f.getName());
 		return response.build();
 	}
+	
+	@POST
+	@Path("/register")
+	@Consumes(MediaType.MULTIPART_FORM_DATA)
+	public Response registerFace(FormDataMultiPart formParams)
+	{
+		Map<String, List<FormDataBodyPart>> fieldsByName = formParams.getFields();
+		for (List<FormDataBodyPart> fields : fieldsByName.values())
+		{
+			for (FormDataBodyPart field : fields)
+			{
+				if (field.getName().equals("uploaded_file")){
+					InputStream is = field.getEntityAs(InputStream.class);
+					String fileName = field.getContentDisposition().getFileName();
+					String userName = fileName.split("\\.")[0];
+					File userFolder = new File("/home/abs/HyraxUsers/" + File.separator + userName);
+					if (!userFolder.exists()){
+						userFolder.mkdir();
+					}
+					File zip = new File( userFolder.getAbsolutePath() + File.separator + fileName);
+					System.out.println(zip.getAbsolutePath());
+					writeToFile(is, zip.getAbsolutePath());
+					String unzipedPath = zip.getParentFile().getAbsolutePath() + File.separator + "unziped";
+					try {
+						unzip (zip.getAbsolutePath(), unzipedPath);
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					
+					System.out.println("File unziped");
+					
+					File [] unzipedFolder = new File(unzipedPath).listFiles();
+					engine = (FaceRecognitionEngine<KEDetectedFace, String>) context.getAttribute("engine");
+					for (File f : unzipedFolder){
+						try {
+							engine.train(userName.toLowerCase(), ImageUtilities.readF(f));
+						} catch (IOException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+					}
+					
+					em.getTransaction().begin();
+					User u = new User(userName.toLowerCase());
+					em.persist(u);
+					em.getTransaction().commit();
+					
+					System.out.println("User saved");
+					
+					String output = "Face processed sucessfully";
+
+					return Response.status(200).entity(output).build();
+					
+				} 
+			}
+			
+		}
+		
+		String output = "No images received";
+
+		return Response.status(422).entity(output).build();
+		
+	}
+	
+	 public void unzip(String zipFilePath, String destDirectory) throws IOException {
+	        File destDir = new File(destDirectory);
+	        if (!destDir.exists()) {
+	            destDir.mkdir();
+	        }
+	        ZipInputStream zipIn = new ZipInputStream(new FileInputStream(zipFilePath));
+	        ZipEntry entry = zipIn.getNextEntry();
+	        // iterates over entries in the zip file
+	        while (entry != null) {
+	            String filePath = destDirectory + File.separator + entry.getName();
+	            if (!entry.isDirectory()) {
+	                // if the entry is a file, extracts it
+	                extractFile(zipIn, filePath);
+	            } else {
+	                // if the entry is a directory, make the directory
+	                File dir = new File(filePath);
+	                dir.mkdir();
+	            }
+	            zipIn.closeEntry();
+	            entry = zipIn.getNextEntry();
+	        }
+	        zipIn.close();
+	    }
+	 
+	 private void extractFile(ZipInputStream zipIn, String filePath) throws IOException {
+	        BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(filePath));
+	        byte[] bytesIn = new byte[BUFFER_SIZE];
+	        int read = 0;
+	        while ((read = zipIn.read(bytesIn)) != -1) {
+	            bos.write(bytesIn, 0, read);
+	        }
+	        bos.close();
+	    }
 
 	@POST
 	@Path("/upload")
@@ -172,7 +287,7 @@ public class ImageServerImpl implements ImageServer {
 						imgDir.mkdir();
 					}
 
-					String imageLocation =  imgDir.getAbsolutePath() + "/" + folderName + "/" + fileName ;
+					String imageLocation =  imgDir.getAbsolutePath() + File.separator + folderName + File.separator + fileName ;
 
 					imageFile = new File(imageLocation);
 
@@ -186,7 +301,7 @@ public class ImageServerImpl implements ImageServer {
 			}
 		}
 		System.out.println(imageFile.getAbsolutePath());
-		FaceRecognitionEngine<KEDetectedFace, String> engine = (FaceRecognitionEngine<KEDetectedFace, String>) context.getAttribute("engine");
+		engine = (FaceRecognitionEngine<KEDetectedFace, String>) context.getAttribute("engine");
 		List<ScoredAnnotation<String>> result = FaceProcessingUtils.recognizeFacesRevised(imageFile, engine);
 		
 		for (ScoredAnnotation<String> a : result){
