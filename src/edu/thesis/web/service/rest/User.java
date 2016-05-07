@@ -33,6 +33,10 @@ public class User {
 	public User (String name){
 		this.setName(name);
 	}
+	
+	public void untagImage(ImageEntity i){
+		images.remove(i);
+	}
 
 	public String getName() {
 		return name;

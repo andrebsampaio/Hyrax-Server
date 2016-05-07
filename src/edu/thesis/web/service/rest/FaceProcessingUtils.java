@@ -395,10 +395,7 @@ public class FaceProcessingUtils {
 				KEDetectedFace face = pair.firstObject();
 				ScoredAnnotation<String> annotation = pair.secondObject();
 				saveFace((DetectedFace)face, toInspect.getParentFile(), String.valueOf(fCount++));
-				if (annotation != null){
-					detectedPeople.add(annotation);
-				}
-				
+				detectedPeople.add(annotation);
 			}
 			
 			

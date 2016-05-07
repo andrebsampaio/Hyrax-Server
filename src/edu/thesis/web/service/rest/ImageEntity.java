@@ -15,6 +15,7 @@ public class ImageEntity {
 	@Basic private String location;
 	@Basic private String time;
 	@Basic private String path;
+	@Basic private int numberOfPeople;
 	@ManyToMany(targetEntity=User.class)
 	private Set<User> users;
 	
@@ -32,6 +33,14 @@ public class ImageEntity {
 	public Set<Face> getFaces() {
 		return faces;
 	}
+	
+	public Set<User> getUsers(){
+		return users;
+	}
+	
+	public void untagUser(User u){
+		users.remove(u);
+	}
 
 	public void setFaces(Set<Face> faces) {
 		this.faces = faces;
@@ -47,6 +56,14 @@ public class ImageEntity {
 	
 	public int getId(){
 		return this.id;
+	}
+	
+	public int getNumberOfPeople(){
+		return numberOfPeople;
+	}
+	
+	public void setNumberOfPeople(int number){
+		numberOfPeople = number;
 	}
 	
 	public String getLocation(){

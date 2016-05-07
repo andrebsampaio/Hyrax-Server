@@ -63,6 +63,28 @@ public class ImageServerImpl implements ImageServer {
 		emf = Persistence.createEntityManagerFactory(PERSISTENCE_UNIT_NAME);
 		em = emf.createEntityManager();
 	}
+	
+	@POST
+	@Path("/untag")
+	@Produces({ MediaType.APPLICATION_JSON})
+	public String untagPerson(@FormParam("username") String userName, @FormParam("picture_id") String picId){
+		try {
+			ImageEntity i = em.find(ImageEntity.class, Integer.valueOf(picId));
+			for (User u : i.getUsers()){
+				if (u.getName().equals(userName)){
+					em.getTransaction().begin();
+					i.untagUser(u);
+					u.untagImage(i);
+					em.getTransaction().commit();
+					break;
+				}
+			}
+			return String.valueOf(true);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return String.valueOf(false);
+		}
+	}
 
 	@GET
 	@Path("/test")
@@ -80,7 +102,7 @@ public class ImageServerImpl implements ImageServer {
 		List<Integer> users = em.createQuery("select i.id from User i").getResultList();
 		return new JSONArray(users).toString();
 	}
-	
+
 	@GET
 	@Path("/checkallusers")
 	@Produces({ MediaType.APPLICATION_JSON})
@@ -88,7 +110,7 @@ public class ImageServerImpl implements ImageServer {
 		List<Integer> users = em.createQuery("select i.id from User i").getResultList();
 		return new JSONArray(users).toString();
 	}
-	
+
 	@POST
 	@Path("/checkuser")
 	@Produces({ MediaType.APPLICATION_JSON})
@@ -101,8 +123,8 @@ public class ImageServerImpl implements ImageServer {
 			return "false";
 		}
 	}
-	
-	
+
+
 
 	@POST
 	@Path("/search")
@@ -178,9 +200,9 @@ public class ImageServerImpl implements ImageServer {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
-					
+
 					System.out.println("File unziped");
-					
+
 					File [] unzipedFolder = new File(unzipedPath).listFiles();
 					engine = (FaceRecognitionEngine<KEDetectedFace, String>) context.getAttribute("engine");
 					for (File f : unzipedFolder){
@@ -191,62 +213,62 @@ public class ImageServerImpl implements ImageServer {
 							e.printStackTrace();
 						}
 					}
-					
+
 					em.getTransaction().begin();
 					User u = new User(userName.toLowerCase());
 					em.persist(u);
 					em.getTransaction().commit();
-					
+
 					System.out.println("User saved");
-					
+
 					String output = "Face processed sucessfully";
 
 					return Response.status(200).entity(output).build();
-					
+
 				} 
 			}
-			
+
 		}
-		
+
 		String output = "No images received";
 
 		return Response.status(422).entity(output).build();
-		
+
 	}
-	
-	 public void unzip(String zipFilePath, String destDirectory) throws IOException {
-	        File destDir = new File(destDirectory);
-	        if (!destDir.exists()) {
-	            destDir.mkdir();
-	        }
-	        ZipInputStream zipIn = new ZipInputStream(new FileInputStream(zipFilePath));
-	        ZipEntry entry = zipIn.getNextEntry();
-	        // iterates over entries in the zip file
-	        while (entry != null) {
-	            String filePath = destDirectory + File.separator + entry.getName();
-	            if (!entry.isDirectory()) {
-	                // if the entry is a file, extracts it
-	                extractFile(zipIn, filePath);
-	            } else {
-	                // if the entry is a directory, make the directory
-	                File dir = new File(filePath);
-	                dir.mkdir();
-	            }
-	            zipIn.closeEntry();
-	            entry = zipIn.getNextEntry();
-	        }
-	        zipIn.close();
-	    }
-	 
-	 private void extractFile(ZipInputStream zipIn, String filePath) throws IOException {
-	        BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(filePath));
-	        byte[] bytesIn = new byte[BUFFER_SIZE];
-	        int read = 0;
-	        while ((read = zipIn.read(bytesIn)) != -1) {
-	            bos.write(bytesIn, 0, read);
-	        }
-	        bos.close();
-	    }
+
+	public void unzip(String zipFilePath, String destDirectory) throws IOException {
+		File destDir = new File(destDirectory);
+		if (!destDir.exists()) {
+			destDir.mkdir();
+		}
+		ZipInputStream zipIn = new ZipInputStream(new FileInputStream(zipFilePath));
+		ZipEntry entry = zipIn.getNextEntry();
+		// iterates over entries in the zip file
+		while (entry != null) {
+			String filePath = destDirectory + File.separator + entry.getName();
+			if (!entry.isDirectory()) {
+				// if the entry is a file, extracts it
+				extractFile(zipIn, filePath);
+			} else {
+				// if the entry is a directory, make the directory
+				File dir = new File(filePath);
+				dir.mkdir();
+			}
+			zipIn.closeEntry();
+			entry = zipIn.getNextEntry();
+		}
+		zipIn.close();
+	}
+
+	private void extractFile(ZipInputStream zipIn, String filePath) throws IOException {
+		BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(filePath));
+		byte[] bytesIn = new byte[BUFFER_SIZE];
+		int read = 0;
+		while ((read = zipIn.read(bytesIn)) != -1) {
+			bos.write(bytesIn, 0, read);
+		}
+		bos.close();
+	}
 
 	@POST
 	@Path("/upload")
@@ -303,15 +325,17 @@ public class ImageServerImpl implements ImageServer {
 		System.out.println(imageFile.getAbsolutePath());
 		engine = (FaceRecognitionEngine<KEDetectedFace, String>) context.getAttribute("engine");
 		List<ScoredAnnotation<String>> result = FaceProcessingUtils.recognizeFacesRevised(imageFile, engine);
-		
+		obj.setNumberOfPeople(result.size());
 		for (ScoredAnnotation<String> a : result){
-			System.out.println(a.annotation.toLowerCase());
-			final String qString = "select u from User u where u.name = :name";
-			TypedQuery<User> query = em.createQuery(qString,User.class);
-			query.setParameter("name", a.annotation.toLowerCase());
-			User user = query.getSingleResult();
-			obj.addUser(user);
-			user.addImage(obj);
+			if (a != null){
+				System.out.println(a.annotation.toLowerCase());
+				final String qString = "select u from User u where u.name = :name";
+				TypedQuery<User> query = em.createQuery(qString,User.class);
+				query.setParameter("name", a.annotation.toLowerCase());
+				User user = query.getSingleResult();
+				obj.addUser(user);
+				user.addImage(obj);
+			}
 		}
 
 		obj.setPath(imageFile.getAbsolutePath());
@@ -326,6 +350,8 @@ public class ImageServerImpl implements ImageServer {
 
 	}
 
+	
+	
 	/*@POST
 	@Path("/upload")
 	@Consumes(MediaType.MULTIPART_FORM_DATA)
