@@ -36,6 +36,7 @@ import org.openimaj.image.ImageUtilities;
 import org.openimaj.image.processing.face.detection.keypoints.KEDetectedFace;
 import org.openimaj.image.processing.face.recognition.FaceRecognitionEngine;
 import org.openimaj.ml.annotation.ScoredAnnotation;
+import org.w3c.dom.svg.GetSVGDocument;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -138,11 +139,50 @@ public class ImageServerImpl implements ImageServer {
 		if (images.get(0) != null){
 			System.out.println(images.size());
 			for (ImageEntity i : images){
-				dao.add(new ImageDAO(i.getId(),i.getLocation(),i.getTime()));
+				List<DeviceDAO> devices = new ArrayList<DeviceDAO>();
+				for (UserDevice d : i.getDevices()){
+					System.out.println(d.getDeviceWD());
+					devices.add(new DeviceDAO(d.getDeviceWD(), d.getDeviceBT()));
+				}
+				dao.add(new ImageDAO(i.getId(),i.getLocation(),i.getTime(), devices));
 			}
 		}
 		return dao;
 	}
+	
+	@POST
+	@Path("/adddevice")
+	@Produces({MediaType.APPLICATION_JSON})
+	public Response addDeviceToImage(@FormParam("imageid") String imageid, @FormParam("macwd") String wifiMac, @FormParam("macbt") String btMac){
+		System.out.println(imageid);
+		ImageEntity image = em.find(ImageEntity.class, Integer.valueOf(imageid) );
+		UserDevice device = checkDevice(wifiMac, btMac);
+		image.addDevice(device);
+		device.addImage(image);
+		em.getTransaction().begin();
+		em.persist(image);
+		em.getTransaction().commit();
+		
+		String output = "success";
+		
+		return Response.status(200).entity(output).build();
+
+	}
+	
+	private UserDevice checkDevice(String wifiMac, String btMac){
+		UserDevice device;
+		try{
+			device = (UserDevice) em.createQuery("select d from UserDevice d where d.id.deviceWD = :wd and d.id.deviceBT = :bt")
+					.setParameter("wd", wifiMac)
+					.setParameter("bt", btMac)
+					.getSingleResult();
+		} catch (Exception e){
+			device = new UserDevice(wifiMac, btMac);
+		}
+		
+		return device;
+	}
+	
 
 	@GET
 	@Path("/images")
@@ -152,7 +192,7 @@ public class ImageServerImpl implements ImageServer {
 		System.out.println(images.size());
 		List<ImageDAO> dao = new ArrayList<ImageDAO>();
 		for (ImageEntity i : images){
-			dao.add(new ImageDAO(i.getId(),i.getLocation(),i.getTime()));
+			//dao.add(new ImageDAO(i.getId(),i.getLocation(),i.getTime(),i.getDeviceWD(), i.getDeviceBT(), i.getPhotoName()));
 		}
 		return dao;
 	}
@@ -164,8 +204,7 @@ public class ImageServerImpl implements ImageServer {
 		ImageEntity img = (ImageEntity) em.createQuery("select i from ImageEntity i where i.id = :imageId ")
 				.setParameter("imageId", Integer.parseInt(imageId))
 				.getSingleResult();
-		System.out.println(img.getPath());
-		File f = new File(img.getPath());
+		File f = new File("");
 		ResponseBuilder response = Response.ok((Object) f);
 		response.header("Content-Disposition",
 				"attachment; filename=" + f.getName());
@@ -277,13 +316,15 @@ public class ImageServerImpl implements ImageServer {
 	{
 		Map<String, List<FormDataBodyPart>> fieldsByName = formParams.getFields();
 		ImageEntity obj = null;
+		DeviceDAO deviceTmp = null;
 		File imageFile = null;
+		ObjectMapper mapper = new ObjectMapper();
 		for (List<FormDataBodyPart> fields : fieldsByName.values())
 		{
 			for (FormDataBodyPart field : fields)
 			{
 				if (field.getName().equals("details")){
-					ObjectMapper mapper = new ObjectMapper();
+					
 					String details = field.getEntityAs(String.class);
 
 					try {
@@ -319,6 +360,20 @@ public class ImageServerImpl implements ImageServer {
 
 					// save it
 					writeToFile(is, imageLocation);		
+				} else if (field.getName().equals("device")){
+					String deviceInfo = field.getEntityAs(String.class);
+					try {
+						deviceTmp = mapper.readValue(deviceInfo, DeviceDAO.class);
+					} catch (JsonParseException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();	        		} 
+					catch (JsonMappingException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
 				}
 			}
 		}
@@ -339,6 +394,11 @@ public class ImageServerImpl implements ImageServer {
 		}
 
 		obj.setPath(imageFile.getAbsolutePath());
+		
+		UserDevice device = checkDevice(deviceTmp.getDeviceWD(), deviceTmp.getDeviceBT());
+		
+		obj.addDevice(device);
+		
 
 		em.getTransaction().begin();
 		em.persist(obj);

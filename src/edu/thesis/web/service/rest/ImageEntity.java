@@ -14,24 +14,58 @@ public class ImageEntity {
 	private int id;
 	@Basic private String location;
 	@Basic private String time;
-	@Basic private String path;
+	@ManyToMany(targetEntity=UserDevice.class, cascade = CascadeType.PERSIST)
+	private Set<UserDevice> devices;
+	
+
+	@Basic private String photoName; 
 	@Basic private int numberOfPeople;
+	@Basic private String photoPath;
 	@ManyToMany(targetEntity=User.class)
 	private Set<User> users;
 	
-	@OneToMany(targetEntity=Face.class, cascade=CascadeType.PERSIST)
-	private Set<Face> faces;
-	
-	public ImageEntity(String location, String time, String path){
+	public ImageEntity(String location, String time, String deviceWD, String deviceBT, String photoName, String photoPath){
 		this.location = location;
+		this.photoName = photoName;
 		this.time = time;
-		this.path = path;
-		this.faces = new HashSet<Face>();
+		this.devices = new HashSet<UserDevice>();
+		devices.add(new UserDevice(deviceWD, deviceBT));
+		this.photoPath = photoPath;
 		users = new HashSet<User>();
 	}
 	
-	public Set<Face> getFaces() {
-		return faces;
+	
+	public Set<UserDevice> getDevices() {
+		return devices;
+	}
+
+
+	public void setDevices(Set<UserDevice> devices) {
+		this.devices = devices;
+	}
+	
+	public void addDevice(UserDevice device){
+		devices.add(device);
+	}
+	
+	public void removeDevice(UserDevice device){
+		devices.remove(device);
+	}
+	
+	public String getPath(){
+		return photoPath;
+	}
+	
+	public void setPath(String path){
+		this.photoPath = path;
+	}
+	
+	public String getPhotoName(){
+		return photoName;
+	}
+	
+	public void setPhotoName(String photoName){
+		this.photoName = photoName;
 	}
 	
 	public Set<User> getUsers(){
@@ -42,11 +76,8 @@ public class ImageEntity {
 		users.remove(u);
 	}
 
-	public void setFaces(Set<Face> faces) {
-		this.faces = faces;
-	}
-
 	public ImageEntity(){
+		devices= new HashSet<UserDevice>();
 		users = new HashSet<User>();
 	}
 	
@@ -74,21 +105,12 @@ public class ImageEntity {
 		return this.time;
 	}
 	
-	
 	public void setLocation(String location){
 		this.location = location;
 	}
 	
 	public void setTime(String time){
 		this.time = time;
-	}
-	
-	public String getPath() {
-		return this.path;
-	}
-	
-	public String setPath(String path){
-		return this.path = path;
 	}
 	
 	
