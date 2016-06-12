@@ -22,8 +22,8 @@ public class UserDevice {
 
 	public UserDevice(String deviceWD, String deviceBT) {
 		id = new DeviceId();
-		id.deviceBT = deviceBT.toLowerCase();
-		id.deviceWD = deviceWD.toLowerCase();
+		id.deviceBT = deviceBT.toUpperCase();
+		id.deviceWD = deviceWD.toUpperCase();
 		this.images = new HashSet<>();
 	}
 	
