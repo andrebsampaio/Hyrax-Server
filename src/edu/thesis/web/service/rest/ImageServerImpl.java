@@ -157,11 +157,13 @@ public class ImageServerImpl implements ImageServer {
 		System.out.println(imageid);
 		ImageEntity image = em.find(ImageEntity.class, Integer.valueOf(imageid) );
 		UserDevice device = checkDevice(wifiMac, btMac);
-		image.addDevice(device);
-		device.addImage(image);
-		em.getTransaction().begin();
-		em.persist(image);
-		em.getTransaction().commit();
+		if (!image.getDevices().contains(device)){
+			image.addDevice(device);
+			device.addImage(image);
+			em.getTransaction().begin();
+			em.merge(image);
+			em.getTransaction().commit();
+		}
 		
 		String output = "success";
 		
@@ -397,11 +399,10 @@ public class ImageServerImpl implements ImageServer {
 		
 		UserDevice device = checkDevice(deviceTmp.getDeviceWD(), deviceTmp.getDeviceBT());
 		
-		obj.addDevice(device);
-		
-
 		em.getTransaction().begin();
 		em.persist(obj);
+		obj.addDevice(device);
+		em.merge(obj);
 		em.getTransaction().commit();
 
 		String output = "File uploaded to successfuly";

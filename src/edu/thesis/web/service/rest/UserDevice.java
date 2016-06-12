@@ -17,13 +17,13 @@ public class UserDevice {
 	
 	@EmbeddedId private DeviceId id;
 	
-	@ManyToMany(targetEntity=ImageEntity.class, cascade = CascadeType.PERSIST)
+	@ManyToMany(targetEntity=ImageEntity.class, mappedBy= "devices")
 	private Set<ImageEntity> images;
 
 	public UserDevice(String deviceWD, String deviceBT) {
 		id = new DeviceId();
-		id.deviceBT = deviceBT;
-		id.deviceWD = deviceWD;
+		id.deviceBT = deviceBT.toLowerCase();
+		id.deviceWD = deviceWD.toLowerCase();
 		this.images = new HashSet<>();
 	}
 	

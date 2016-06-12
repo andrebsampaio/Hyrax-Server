@@ -14,7 +14,7 @@ public class ImageEntity {
 	private int id;
 	@Basic private String location;
 	@Basic private String time;
-	@ManyToMany(targetEntity=UserDevice.class, cascade = CascadeType.PERSIST)
+	@ManyToMany(targetEntity=UserDevice.class, cascade = {CascadeType.MERGE})
 	private Set<UserDevice> devices;
 	
 

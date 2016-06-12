@@ -14,8 +14,8 @@ public class DeviceDAO implements Serializable{
 	
 	String deviceWD;
 	public DeviceDAO(String deviceWD, String deviceBT) {
-		this.deviceWD = deviceWD;
-		this.deviceBT = deviceBT;
+		this.deviceWD = deviceWD.toLowerCase();
+		this.deviceBT = deviceBT.toLowerCase();
 	}
 	
 	public DeviceDAO(){}
