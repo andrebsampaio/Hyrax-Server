@@ -459,7 +459,15 @@ public class FaceProcessingUtils {
 //	}
 
 	public static FaceRecognitionEngine createAndTrainRecognitionEngine(GroupedDataset dataset, String cascadeFolder) {
-		FaceDetector<DetectedFace, FImage> haar = new HaarCascadeDetector(new File(cascadeFolder).listFiles()[2].getAbsolutePath());
+		File cascadeDir = new File(cascadeFolder);
+		File classifier = null;
+		for (File f : cascadeDir.listFiles()){
+			if (f.getName().equals("haarcascade_frontalface_alt.xml")){
+				classifier = f;
+				break;
+			}
+		}
+		FaceDetector<DetectedFace, FImage> haar = new HaarCascadeDetector(classifier.getAbsolutePath());
 		FKEFaceDetector faceDetector = new FKEFaceDetector(haar);
 		FisherFaceRecogniser<KEDetectedFace, String> recognizer = FisherFaceRecogniser.create(18, new RotateScaleAligner(), 1, DoubleFVComparison.CORRELATION, 0.7f); 
 		FaceRecognitionEngine engine = FaceRecognitionEngine.create(faceDetector,recognizer);
