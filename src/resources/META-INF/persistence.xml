@@ -1,1 +1,27 @@
-<?xml version="1.0" encoding="UTF-8"?><persistence version="1.0"	xmlns="http://java.sun.com/xml/ns/persistence" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"	xsi:schemaLocation="http://java.sun.com/xml/ns/persistence http://java.sun.com/xml/ns/persistence/persistence_1_0.xsd">	<persistence-unit name="hyrax-server"		transaction-type="RESOURCE_LOCAL">		<provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>		<class>edu.thesis.web.service.rest.ImageEntity</class>		<class>edu.thesis.web.service.rest.UserDevice</class>		<class>edu.thesis.web.service.rest.User</class>		<properties>			<!-- JDBC connection properties -->			<property name="eclipselink.target-database" value="Derby" />			<property name="javax.persistence.jdbc.driver" value="org.apache.derby.jdbc.ClientDriver" />			<property name="javax.persistence.jdbc.url"				value="jdbc:derby://localhost:1527/hyrax;create=true;" />			<property name="javax.persistence.jdbc.user" value="APP" />			<property name="javax.persistence.jdbc.password" value="APP" />			<property name="eclipselink.ddl-generation" value="drop-and-create-tables" />			<property name="eclipselink.ddl-generation.output-mode"				value="database" />		</properties>	</persistence-unit></persistence>
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence version="1.0"
+	xmlns="http://java.sun.com/xml/ns/persistence" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://java.sun.com/xml/ns/persistence http://java.sun.com/xml/ns/persistence/persistence_1_0.xsd">
+	<persistence-unit name="hyrax-server"
+		transaction-type="RESOURCE_LOCAL">
+
+		<provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
+
+		<class>edu.thesis.web.service.rest.ImageEntity</class>
+		<class>edu.thesis.web.service.rest.UserDevice</class>
+		<class>edu.thesis.web.service.rest.User</class>
+		<properties>
+			<!-- JDBC connection properties -->
+			<property name="eclipselink.target-database" value="Derby" />
+			<property name="javax.persistence.jdbc.driver" value="org.apache.derby.jdbc.ClientDriver" />
+			<property name="javax.persistence.jdbc.url"
+				value="jdbc:derby://localhost:1527/hyrax-no-p2p;create=true;" />
+			<property name="javax.persistence.jdbc.user" value="APP" />
+			<property name="javax.persistence.jdbc.password" value="APP" />
+			<property name="eclipselink.ddl-generation" value="drop-and-create-tables" />
+			<property name="eclipselink.ddl-generation.output-mode"
+				value="database" />
+
+		</properties>
+	</persistence-unit>
+</persistence>
