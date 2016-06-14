@@ -19,20 +19,13 @@ public class ImageEntity {
 	@ManyToMany(targetEntity=User.class)
 	private Set<User> users;
 	
-	@OneToMany(targetEntity=Face.class, cascade=CascadeType.PERSIST)
-	private Set<Face> faces;
-	
 	public ImageEntity(String location, String time, String path){
 		this.location = location;
 		this.time = time;
 		this.path = path;
-		this.faces = new HashSet<Face>();
 		users = new HashSet<User>();
 	}
 	
-	public Set<Face> getFaces() {
-		return faces;
-	}
 	
 	public Set<User> getUsers(){
 		return users;
@@ -40,10 +33,6 @@ public class ImageEntity {
 	
 	public void untagUser(User u){
 		users.remove(u);
-	}
-
-	public void setFaces(Set<Face> faces) {
-		this.faces = faces;
 	}
 
 	public ImageEntity(){

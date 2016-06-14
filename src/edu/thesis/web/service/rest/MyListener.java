@@ -34,8 +34,8 @@ public class MyListener implements ServletContextListener {
 
 	@Override
 	public void contextInitialized(ServletContextEvent arg0) {
-		GroupedDataset dataset = FaceProcessingUtils.getGroupedDataset(new File ("/home/abs/trainpaio"));
-		engine = FaceProcessingUtils.createAndTrainRecognitionEngine(dataset, "/home/abs/cascadeclassifiers/");
+		GroupedDataset dataset = FaceProcessingUtils.getGroupedDataset(new File (System.getProperty("user.home") + File.separator +"trainpaio"));
+		engine = FaceProcessingUtils.createAndTrainRecognitionEngine(dataset, System.getProperty("user.home") + File.separator + "cascadeclassifiers");
 		
 		ServletContext context = arg0.getServletContext();
 		context.setAttribute("engine", engine);

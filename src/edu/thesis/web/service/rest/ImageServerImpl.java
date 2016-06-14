@@ -51,6 +51,7 @@ public class ImageServerImpl implements ImageServer {
 	private String PERSISTENCE_UNIT_NAME = "hyrax-server";
 	private static final int BUFFER_SIZE = 4096;
 	private FaceRecognitionEngine<KEDetectedFace, String> engine;
+	private static final String HOME_PATH = System.getProperty("user.home");
 
 	@Context
 	private ServletContext context;
@@ -90,7 +91,7 @@ public class ImageServerImpl implements ImageServer {
 	@Path("/test")
 	@Produces({ MediaType.APPLICATION_JSON})
 	public String testDetection(){
-		GroupedDataset g = FaceProcessingUtils.getGroupedDataset(new File("/home/abs/trainpaio/"));
+		GroupedDataset g = FaceProcessingUtils.getGroupedDataset(new File(HOME_PATH + File.separator + "trainpaio"));
 		em.getTransaction().begin();
 		for (Object name : g.keySet()){
 			String aux = String.valueOf(name);
@@ -186,7 +187,7 @@ public class ImageServerImpl implements ImageServer {
 					InputStream is = field.getEntityAs(InputStream.class);
 					String fileName = field.getContentDisposition().getFileName();
 					String userName = fileName.split("\\.")[0];
-					File userFolder = new File("/home/abs/HyraxUsers/" + File.separator + userName);
+					File userFolder = new File(HOME_PATH + File.separator + "HyraxUsers" + File.separator + userName);
 					if (!userFolder.exists()){
 						userFolder.mkdir();
 					}

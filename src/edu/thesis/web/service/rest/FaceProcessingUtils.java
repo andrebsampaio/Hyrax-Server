@@ -79,7 +79,9 @@ import org.openimaj.util.pair.IntFloatPair;
 import de.bwaldvogel.liblinear.SolverType;
 
 public class FaceProcessingUtils {
-
+	
+	private static final String HOME_PATH = System.getProperty("user.home");
+	
 	public static void findFaces(File file, String cascadePath){
 		try {
 			FileInputStream input = new FileInputStream(file);
@@ -118,7 +120,7 @@ public class FaceProcessingUtils {
 		try {
 
 			VFSGroupDataset<FImage> groupedFaces =  
-					new VFSGroupDataset<FImage>("/home/abs/trainpaio/", ImageUtilities.FIMAGE_READER);
+					new VFSGroupDataset<FImage>(HOME_PATH + File.separator + "trainpaio", ImageUtilities.FIMAGE_READER);
 			System.out.println("train images size: " + groupedFaces.size());
 			return groupedFaces;
 		} catch (FileSystemException e) {
