@@ -305,7 +305,7 @@ public class ImageServerImpl implements ImageServer {
 					String fileName = field.getContentDisposition().getFileName();
 					String folderName = fileName.split("\\.")[0];
 
-					File imgDir = new File ("HyraxImages/");
+					File imgDir = new File (HOME_PATH + File.separator + "HyraxImages");
 					if (!imgDir.exists()){
 						imgDir.mkdir();
 					}
