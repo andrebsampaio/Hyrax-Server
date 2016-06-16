@@ -112,6 +112,27 @@ public class ImageServerImpl implements ImageServer {
 		return new JSONArray(users).toString();
 	}
 
+	
+	@POST
+	@Path("/fakeinserts")
+	@Produces({ MediaType.APPLICATION_JSON})
+	public String fakeInserts(@FormParam("username") String userName, @FormParam("path") String path, @FormParam("filename") String fileName, @FormParam("count") String count){
+		int c = Integer.parseInt(count);
+		System.out.println(fileName);
+		for (int i = 1; i <= c; i++){
+			ImageEntity img = new ImageEntity(fileName, String.valueOf(i), path + File.separator + fileName + String.valueOf(i) + File.separator + fileName + String.valueOf(i) + ".jpg" );
+			User u = (User) em.createQuery("select u from User u where u.name = :name").setParameter("name", userName.toLowerCase()).getSingleResult();
+			img.addUser(u);
+			u.addImage(img);
+			
+			em.getTransaction().begin();
+			em.persist(img);
+			em.getTransaction().commit();
+		}
+		
+		return "done";
+	}
+	
 	@POST
 	@Path("/checkuser")
 	@Produces({ MediaType.APPLICATION_JSON})
