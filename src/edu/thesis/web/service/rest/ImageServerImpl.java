@@ -87,6 +87,30 @@ public class ImageServerImpl implements ImageServer {
 			return String.valueOf(false);
 		}
 	}
+	
+	@POST
+	@Path("/fakeinserts")
+	@Produces({ MediaType.APPLICATION_JSON})
+	public String fakeInserts(@FormParam("username") String userName, @FormParam("filename") String fileName ,@FormParam("count") String count, @FormParam("macwd") String wifiMac, @FormParam("macbt") String btMac){
+		int c = Integer.parseInt(count);
+		System.out.println(fileName);
+		for (int i = 1; i <= c; i++){
+			ImageEntity img = new ImageEntity(fileName, String.valueOf(i), wifiMac, btMac, fileName + i, null );
+			User u = (User) em.createQuery("select u from User u where u.name = :name").setParameter("name", userName.toLowerCase()).getSingleResult();
+			img.addUser(u);
+			u.addImage(img);
+			UserDevice device = checkDevice(wifiMac, btMac);
+			
+			em.getTransaction().begin();
+			em.persist(img);
+			img.addDevice(device);
+			em.merge(img);
+			em.getTransaction().commit();
+		}
+		
+		return "done";
+		
+	}
 
 	@GET
 	@Path("/test")
