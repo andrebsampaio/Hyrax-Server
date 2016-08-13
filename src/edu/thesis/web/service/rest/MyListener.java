@@ -18,7 +18,6 @@ public class MyListener implements ServletContextListener {
 	private static String mServiceName = "hyrax";
 	private static final String SERVICE_TYPE = "_http._tcp.local.";
 	JmDNS jmdns;
-	FaceRecognitionEngine<KEDetectedFace, String> engine;
 
 	@Override
 	public void contextDestroyed(ServletContextEvent arg0) {
@@ -34,13 +33,6 @@ public class MyListener implements ServletContextListener {
 
 	@Override
 	public void contextInitialized(ServletContextEvent arg0) {
-		GroupedDataset dataset = FaceProcessingUtils.getGroupedDataset(new File (System.getProperty("user.home") + File.separator +"trainpaio"));
-		engine = FaceProcessingUtils.createAndTrainRecognitionEngine(dataset, System.getProperty("user.home") + File.separator + "cascadeclassifiers");
-		
-		ServletContext context = arg0.getServletContext();
-		context.setAttribute("engine", engine);
-		
-		
 		new Thread() {
 			public void run() {
 				

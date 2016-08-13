@@ -51,7 +51,6 @@ public class ImageServerImpl implements ImageServer {
 	private EntityManager em;
 	private String PERSISTENCE_UNIT_NAME = "hyrax-server";
 	private static final int BUFFER_SIZE = 4096;
-	private FaceRecognitionEngine<KEDetectedFace, String> engine;
 	private static final String HOME_PATH = System.getProperty("user.home");
 
 	@Context
@@ -65,164 +64,6 @@ public class ImageServerImpl implements ImageServer {
 		emf = Persistence.createEntityManagerFactory(PERSISTENCE_UNIT_NAME);
 		em = emf.createEntityManager();
 	}
-	
-	@POST
-	@Path("/untag")
-	@Produces({ MediaType.APPLICATION_JSON})
-	public String untagPerson(@FormParam("username") String userName, @FormParam("picture_id") String picId){
-		try {
-			ImageEntity i = em.find(ImageEntity.class, Integer.valueOf(picId));
-			for (User u : i.getUsers()){
-				if (u.getName().equals(userName)){
-					em.getTransaction().begin();
-					i.untagUser(u);
-					u.untagImage(i);
-					em.getTransaction().commit();
-					break;
-				}
-			}
-			return String.valueOf(true);
-		} catch (Exception e) {
-			e.printStackTrace();
-			return String.valueOf(false);
-		}
-	}
-	
-	@POST
-	@Path("/fakeinserts")
-	@Produces({ MediaType.APPLICATION_JSON})
-	public String fakeInserts(@FormParam("username") String userName, @FormParam("filename") String fileName ,@FormParam("count") String count, @FormParam("macwd") String wifiMac, @FormParam("macbt") String btMac){
-		int c = Integer.parseInt(count);
-		System.out.println(fileName);
-		for (int i = 1; i <= c; i++){
-			ImageEntity img = new ImageEntity(fileName, String.valueOf(i), wifiMac, btMac, fileName + i, null );
-			User u = (User) em.createQuery("select u from User u where u.name = :name").setParameter("name", userName.toLowerCase()).getSingleResult();
-			img.addUser(u);
-			u.addImage(img);
-			UserDevice device = checkDevice(wifiMac, btMac);
-			
-			em.getTransaction().begin();
-			em.persist(img);
-			img.addDevice(device);
-			em.merge(img);
-			em.getTransaction().commit();
-		}
-		
-		return "done";
-		
-	}
-
-	@GET
-	@Path("/test")
-	@Produces({ MediaType.APPLICATION_JSON})
-	public String testDetection(){
-		GroupedDataset g = FaceProcessingUtils.getGroupedDataset(new File(HOME_PATH + File.separator + "trainpaio"));
-		em.getTransaction().begin();
-		for (Object name : g.keySet()){
-			String aux = String.valueOf(name);
-			System.out.println(aux);
-			User u = new User(aux.toLowerCase());
-			em.persist(u);
-		}
-		em.getTransaction().commit();
-		List<Integer> users = em.createQuery("select i.id from User i").getResultList();
-		return new JSONArray(users).toString();
-	}
-
-	@GET
-	@Path("/checkallusers")
-	@Produces({ MediaType.APPLICATION_JSON})
-	public String test(){
-		List<Integer> users = em.createQuery("select i.id from User i").getResultList();
-		return new JSONArray(users).toString();
-	}
-
-	@POST
-	@Path("/checkuser")
-	@Produces({ MediaType.APPLICATION_JSON})
-	public String check(@FormParam("username") String userName){
-		System.out.println(userName);
-		try{
-			User u = (User) em.createQuery("select u from User u where u.name = :name").setParameter("name", userName).getSingleResult();
-			return "true";
-		} catch(Exception e){
-			return "false";
-		}
-	}
-
-
-
-	@POST
-	@Path("/search")
-	@Produces({MediaType.APPLICATION_JSON})
-	public List<ImageDAO> searchImage(@FormParam("person_name") String userName){
-		System.out.println(userName);
-		List<ImageEntity> images = em.createQuery("SELECT i.images FROM User i WHERE i.name = :name")
-				.setParameter("name", userName)
-				.getResultList();
-		List<ImageDAO> dao = new ArrayList<ImageDAO>();
-		if (images.get(0) != null){
-			System.out.println(images.size());
-			for (ImageEntity i : images){
-				List<DeviceDAO> devices = new ArrayList<DeviceDAO>();
-				for (UserDevice d : i.getDevices()){
-					System.out.println(d.getDeviceWD());
-					devices.add(new DeviceDAO(d.getDeviceWD(), d.getDeviceBT()));
-				}
-				dao.add(new ImageDAO(i.getId(),i.getLocation(),i.getTime(), devices));
-			}
-		}
-		return dao;
-	}
-	
-	@POST
-	@Path("/adddevice")
-	@Produces({MediaType.APPLICATION_JSON})
-	public Response addDeviceToImage(@FormParam("imageid") String imageid, @FormParam("macwd") String wifiMac, @FormParam("macbt") String btMac){
-		System.out.println(imageid);
-		ImageEntity image = em.find(ImageEntity.class, Integer.valueOf(imageid) );
-		UserDevice device = checkDevice(wifiMac, btMac);
-		if (!image.getDevices().contains(device)){
-			image.addDevice(device);
-			device.addImage(image);
-			em.getTransaction().begin();
-			em.merge(image);
-			em.getTransaction().commit();
-		}
-		
-		String output = "success";
-		
-		return Response.status(200).entity(output).build();
-
-	}
-	
-	private UserDevice checkDevice(String wifiMac, String btMac){
-		UserDevice device;
-		try{
-			device = (UserDevice) em.createQuery("select d from UserDevice d where d.id.deviceWD = :wd and d.id.deviceBT = :bt")
-					.setParameter("wd", wifiMac)
-					.setParameter("bt", btMac)
-					.getSingleResult();
-		} catch (Exception e){
-			device = new UserDevice(wifiMac, btMac);
-		}
-		
-		return device;
-	}
-	
-
-	@GET
-	@Path("/images")
-	@Produces({MediaType.APPLICATION_JSON})
-	public List<ImageDAO> getAllIds(){
-		List<ImageEntity> images = em.createQuery("select i from ImageEntity i").getResultList();
-		System.out.println(images.size());
-		List<ImageDAO> dao = new ArrayList<ImageDAO>();
-		for (ImageEntity i : images){
-			//dao.add(new ImageDAO(i.getId(),i.getLocation(),i.getTime(),i.getDeviceWD(), i.getDeviceBT(), i.getPhotoName()));
-		}
-		return dao;
-	}
 
 	@GET
 	@Path("/images/{imageId}")
@@ -231,14 +72,14 @@ public class ImageServerImpl implements ImageServer {
 		ImageEntity img = (ImageEntity) em.createQuery("select i from ImageEntity i where i.id = :imageId ")
 				.setParameter("imageId", Integer.parseInt(imageId))
 				.getSingleResult();
-		File f = new File("");
+		File f = new File(img.getPath());
 		ResponseBuilder response = Response.ok((Object) f);
 		response.header("Content-Disposition",
 				"attachment; filename=" + f.getName());
 		return response.build();
 	}
 	
-	@POST
+	/*@POST
 	@Path("/register")
 	@Consumes(MediaType.MULTIPART_FORM_DATA)
 	public Response registerFace(FormDataMultiPart formParams)
@@ -334,7 +175,7 @@ public class ImageServerImpl implements ImageServer {
 			bos.write(bytesIn, 0, read);
 		}
 		bos.close();
-	}
+	}*/
 
 	@POST
 	@Path("/upload")
@@ -342,42 +183,22 @@ public class ImageServerImpl implements ImageServer {
 	public Response uploadImage(FormDataMultiPart formParams)
 	{
 		Map<String, List<FormDataBodyPart>> fieldsByName = formParams.getFields();
-		ImageEntity obj = null;
-		DeviceDAO deviceTmp = null;
+		ImageEntity obj = new ImageEntity();
 		File imageFile = null;
-		ObjectMapper mapper = new ObjectMapper();
 		for (List<FormDataBodyPart> fields : fieldsByName.values())
 		{
 			for (FormDataBodyPart field : fields)
 			{
-				if (field.getName().equals("details")){
-					
-					String details = field.getEntityAs(String.class);
-
-					try {
-						obj = mapper.readValue(details, ImageEntity.class);
-					} catch (JsonParseException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();	        		} 
-					catch (JsonMappingException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-
-				} else if (field.getName().equals("image")) {
+				 if (field.getName().equals("image")) {
 					InputStream is = field.getEntityAs(InputStream.class);
 					String fileName = field.getContentDisposition().getFileName();
-					String folderName = fileName.split("\\.")[0];
 
 					File imgDir = new File (HOME_PATH + File.separator + "HyraxImages");
 					if (!imgDir.exists()){
 						imgDir.mkdir();
 					}
 
-					String imageLocation =  imgDir.getAbsolutePath() + File.separator + folderName + File.separator + fileName ;
+					String imageLocation =  imgDir.getAbsolutePath() + File.separator + fileName ;
 
 					imageFile = new File(imageLocation);
 
@@ -387,52 +208,22 @@ public class ImageServerImpl implements ImageServer {
 
 					// save it
 					writeToFile(is, imageLocation);		
-				} else if (field.getName().equals("device")){
-					String deviceInfo = field.getEntityAs(String.class);
-					try {
-						deviceTmp = mapper.readValue(deviceInfo, DeviceDAO.class);
-					} catch (JsonParseException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();	        		} 
-					catch (JsonMappingException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-				}
+				} 
 			}
 		}
 		System.out.println(imageFile.getAbsolutePath());
-		engine = (FaceRecognitionEngine<KEDetectedFace, String>) context.getAttribute("engine");
-		List<ScoredAnnotation<String>> result = FaceProcessingUtils.recognizeFacesRevised(imageFile, engine);
-		obj.setNumberOfPeople(result.size());
-		for (ScoredAnnotation<String> a : result){
-			if (a != null){
-				System.out.println(a.annotation.toLowerCase());
-				final String qString = "select u from User u where u.name = :name";
-				TypedQuery<User> query = em.createQuery(qString,User.class);
-				query.setParameter("name", a.annotation.toLowerCase());
-				User user = query.getSingleResult();
-				obj.addUser(user);
-				user.addImage(obj);
-			}
-		}
+		
 
 		obj.setPath(imageFile.getAbsolutePath());
 		
-		UserDevice device = checkDevice(deviceTmp.getDeviceWD(), deviceTmp.getDeviceBT());
 		
 		em.getTransaction().begin();
 		em.persist(obj);
-		obj.addDevice(device);
-		em.merge(obj);
 		em.getTransaction().commit();
 
 		String output = "File uploaded to successfuly";
 
-		return Response.status(200).entity(output).build();
+		return Response.status(200).entity(String.valueOf(obj.getId())).build();
 
 	}
 

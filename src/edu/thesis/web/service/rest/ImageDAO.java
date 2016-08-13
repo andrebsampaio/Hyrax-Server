@@ -15,29 +15,17 @@ public class ImageDAO implements Serializable {
 	int id;
 	String location;
 	String time;
-	List<DeviceDAO> devices;
-	
-	public void setDevices(List<DeviceDAO> devices) {
-		this.devices = devices;
-	}
 
-	public List<DeviceDAO> getDevices() {
-		return devices;
-	}
 
 	String photoName;
 	
-	public ImageDAO(int id, String location, String time, List <DeviceDAO> devices){
+	public ImageDAO(int id, String location, String time){
 		this.id = id;
 		this.location = location;
 		this.time = time;
-		this.devices = devices;
 		this.photoName = location + time;
 	}
 	
-	public ImageDAO(){
-		devices = new ArrayList<>();
-	}
 	
 	public void setPhotoName(String photoName){
 		this.photoName = photoName;
